@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PONG MUNDIAL · Copa de Naciones</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Oswald:wght@300;500;700&display=swap');
+
+  :root{
+    --bg:#05060a;
+    --grid:#0d1424;
+    --neon:#33ffd1;
+    --neon-2:#ff3d6e;
+    --gold:#ffd23f;
+    --ink:#e8f6f1;
+    --muted:#5c7a8c;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;}
+
+  html,body{height:100%;}
+
+  body{
+    background:
+      radial-gradient(circle at 20% 10%, #0a1730 0%, transparent 45%),
+      radial-gradient(circle at 80% 90%, #1a0a1c 0%, transparent 45%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Oswald',sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    overflow-x:hidden;
+  }
+
+  /* animated scanlines / grid floor */
+  body::before{
+    content:"";
+    position:fixed;inset:0;
+    background-image:
+      linear-gradient(transparent 95%, rgba(51,255,209,.07) 100%),
+      linear-gradient(90deg, transparent 95%, rgba(51,255,209,.07) 100%);
+    background-size:100% 4px, 4px 100%;
+    pointer-events:none;
+    z-index:1;
+    animation:scan 8s linear infinite;
+  }
+  @keyframes scan{to{background-position:0 100%,100% 0;}}
+
+  .stage{
+    width:100%;
+    max-width:880px;
+    position:relative;
+    z-index:2;
+    border:2px solid var(--grid);
+    background:rgba(5,8,14,.7);
+    backdrop-filter:blur(2px);
+    box-shadow:0 0 0 1px rgba(51,255,209,.08), 0 40px 120px -40px rgba(51,255,209,.25);
+  }
+
+  header.bar{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:16px 22px;
+    border-bottom:2px solid var(--grid);
+    background:linear-gradient(90deg, rgba(51,255,209,.06), transparent);
+  }
+  .logo{
+    font-family:'Press Start 2P',monospace;
+    font-size:15px;
+    letter-spacing:1px;
+    color:var(--neon);
+    text-shadow:0 0 12px rgba(51,255,209,.6);
+  }
+  .logo b{color:var(--neon-2);text-shadow:0 0 12px rgba(255,61,110,.6);}
+  .subtitle{
+    font-size:12px;text-transform:uppercase;letter-spacing:4px;color:var(--muted);
+  }
+
+  .screen{padding:30px 26px 36px;}
+
+  /* ---------- titles ---------- */
+  h1{
+    font-family:'Press Start 2P',monospace;
+    font-size:26px;
+    line-height:1.5;
+    text-align:center;
+    margin-bottom:8px;
+    color:var(--ink);
+  }
+  .tag{text-align:center;color:var(--muted);text-transform:uppercase;letter-spacing:3px;font-size:13px;margin-bottom:26px;}
+
+  /* ---------- buttons ---------- */
+  .btn{
+    font-family:'Press Start 2P',monospace;
+    font-size:13px;
+    color:var(--bg);
+    background:var(--neon);
+    border:none;
+    padding:16px 22px;
+    cursor:pointer;
+    letter-spacing:1px;
+    transition:transform .12s, box-shadow .12s, background .12s;
+    box-shadow:0 0 0 0 rgba(51,255,209,.6);
+  }
+  .btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px -6px rgba(51,255,209,.8);}
+  .btn:active{transform:translateY(0);}
+  .btn.alt{background:transparent;color:var(--neon);border:2px solid var(--neon);}
+  .btn.alt:hover{background:rgba(51,255,209,.1);}
+  .btn.red{background:var(--neon-2);}
+  .btn.red:hover{box-shadow:0 8px 24px -6px rgba(255,61,110,.8);}
+
+  .center{display:flex;flex-direction:column;align-items:center;gap:14px;}
+
+  /* ---------- flag pick ---------- */
+  .grid-flags{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
+    gap:10px;margin:20px 0 26px;
+  }
+  .flag-card{
+    border:2px solid var(--grid);
+    padding:14px 8px;text-align:center;cursor:pointer;
+    transition:all .15s;background:rgba(13,20,36,.4);
+  }
+  .flag-card:hover{border-color:var(--neon);transform:translateY(-3px);background:rgba(51,255,209,.08);}
+  .flag-card.sel{border-color:var(--gold);background:rgba(255,210,63,.1);box-shadow:0 0 20px -4px rgba(255,210,63,.5);}
+  .flag-emoji{font-size:30px;display:block;margin-bottom:8px;}
+  .flag-name{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--ink);}
+
+  label.field{display:block;text-align:center;margin-bottom:8px;text-transform:uppercase;letter-spacing:3px;color:var(--muted);font-size:13px;}
+  input.name{
+    display:block;margin:0 auto 8px;width:min(360px,100%);
+    background:var(--grid);border:2px solid var(--muted);color:var(--ink);
+    padding:12px 16px;text-align:center;font-family:'Oswald';font-size:18px;letter-spacing:2px;
+  }
+  input.name:focus{outline:none;border-color:var(--neon);}
+
+  /* ---------- game canvas ---------- */
+  .court-wrap{position:relative;}
+  canvas{
+    display:block;width:100%;background:#02030a;
+    border:2px solid var(--grid);image-rendering:pixelated;
+  }
+  .scoreline{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:12px;font-family:'Press Start 2P';font-size:14px;
+  }
+  .scoreline .you{color:var(--neon);}
+  .scoreline .cpu{color:var(--neon-2);}
+  .scoreline .vs{color:var(--muted);font-size:11px;}
+  .hint{text-align:center;color:var(--muted);font-size:13px;margin-top:12px;letter-spacing:1px;}
+
+  /* ---------- bracket ---------- */
+  .round-title{
+    font-family:'Press Start 2P';font-size:14px;text-align:center;color:var(--gold);
+    margin:6px 0 22px;text-shadow:0 0 12px rgba(255,210,63,.4);
+  }
+  .bracket{display:flex;flex-direction:column;gap:10px;margin-bottom:24px;}
+  .match{
+    display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+    border:2px solid var(--grid);background:rgba(13,20,36,.4);
+    padding:10px 14px;gap:10px;
+  }
+  .team{display:flex;align-items:center;gap:8px;font-size:16px;}
+  .team.right{justify-content:flex-end;text-align:right;}
+  .team .em{font-size:22px;}
+  .team.win{color:var(--neon);font-weight:700;}
+  .team.lose{color:var(--muted);opacity:.55;}
+  .team.user{color:var(--gold);}
+  .sc{font-family:'Press Start 2P';font-size:13px;color:var(--ink);white-space:nowrap;}
+  .sc small{color:var(--muted);}
+
+  .feed{
+    border:2px solid var(--grid);background:rgba(2,3,10,.6);
+    padding:16px;margin-bottom:22px;max-height:220px;overflow-y:auto;
+    font-size:15px;line-height:1.9;
+  }
+  .feed p{opacity:0;animation:fade .4s forwards;}
+  .feed .hl{color:var(--neon);}
+  .feed .hlr{color:var(--neon-2);}
+  .feed .gold{color:var(--gold);font-weight:700;}
+  @keyframes fade{to{opacity:1;}}
+
+  .champion{
+    text-align:center;padding:30px 10px;
+    border:2px solid var(--gold);background:rgba(255,210,63,.06);
+    margin-bottom:22px;
+  }
+  .champion .em{font-size:64px;display:block;margin-bottom:10px;animation:bob 2s ease-in-out infinite;}
+  @keyframes bob{50%{transform:translateY(-8px);}}
+  .champion .ttl{font-family:'Press Start 2P';font-size:18px;color:var(--gold);text-shadow:0 0 20px rgba(255,210,63,.5);}
+  .champion .who{font-size:24px;letter-spacing:3px;margin-top:8px;text-transform:uppercase;}
+
+  .hidden{display:none !important;}
+
+  footer.foot{
+    text-align:center;padding:14px;border-top:2px solid var(--grid);
+    color:var(--muted);font-size:12px;letter-spacing:2px;text-transform:uppercase;
+  }
+
+  @media(max-width:560px){
+    h1{font-size:18px;}
+    .logo{font-size:11px;}
+    .team{font-size:13px;}
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <header class="bar">
+    <div class="logo">PONG <b>MUNDIAL</b></div>
+    <div class="subtitle" id="phaseLabel">Copa de Naciones</div>
+  </header>
+
+  <!-- ============ SETUP ============ -->
+  <section class="screen" id="setupScreen">
+    <h1>COPA DE<br>NACIONES</h1>
+    <p class="tag">8 selecciones · eliminación directa</p>
+
+    <label class="field">Tu nombre</label>
+    <input class="name" id="playerName" maxlength="14" placeholder="JUGADOR" value="">
+
+    <label class="field">Elige tu selección</label>
+    <div class="grid-flags" id="flagGrid"></div>
+
+    <div class="center">
+      <button class="btn" id="startBtn">▶ COMENZAR TORNEO</button>
+      <p class="hint">Mueve con ↑ ↓ o el ratón · primero en llegar a 5 gana</p>
+    </div>
+  </section>
+
+  <!-- ============ MATCH ============ -->
+  <section class="screen hidden" id="matchScreen">
+    <div class="round-title" id="matchRound">CUARTOS DE FINAL</div>
+    <div class="scoreline">
+      <span class="you" id="lblYou">TÚ 0</span>
+      <span class="vs" id="lblVs">VS</span>
+      <span class="cpu" id="lblCpu">0 CPU</span>
+    </div>
+    <div class="court-wrap">
+      <canvas id="court" width="800" height="460"></canvas>
+    </div>
+    <p class="hint" id="matchHint">Pulsa ESPACIO para sacar</p>
+  </section>
+
+  <!-- ============ BRACKET / SIM ============ -->
+  <section class="screen hidden" id="bracketScreen">
+    <div class="round-title" id="bracketTitle">RESULTADOS</div>
+    <div id="championBox"></div>
+    <div class="feed" id="feed"></div>
+    <div class="bracket" id="bracketList"></div>
+    <div class="center">
+      <button class="btn alt" id="nextBtn">CONTINUAR ▶</button>
+    </div>
+  </section>
+
+  <footer class="foot" id="footMsg">Insert Coin · 1 Player</footer>
+</div>
+
+<script>
+/* =========================================================
+   PONG MUNDIAL — Copa de Naciones
+   El jugador entra en un cuadro de 8. Si pierde, el torneo
+   continúa SIMULANDO los partidos entre los países restantes
+   hasta coronar un campeón.
+========================================================= */
+
+const NATIONS = [
+  {name:"Brasil",     em:"🇧🇷", str:84},
+  {name:"Alemania",   em:"🇩🇪", str:86},
+  {name:"Japón",      em:"🇯🇵", str:79},
+  {name:"Francia",    em:"🇫🇷", str:88},
+  {name:"Argentina",  em:"🇦🇷", str:85},
+  {name:"España",     em:"🇪🇸", str:82},
+  {name:"Italia",     em:"🇮🇹", str:80},
+  {name:"Corea",      em:"🇰🇷", str:76},
+  {name:"México",     em:"🇲🇽", str:74},
+  {name:"Portugal",   em:"🇵🇹", str:83},
+  {name:"Países Bajos",em:"🇳🇱",str:81},
+  {name:"Croacia",    em:"🇭🇷", str:78},
+];
+
+const ROUND_NAMES = ["CUARTOS DE FINAL","SEMIFINAL","FINAL"];
+
+// ---- state ----
+let player = null;          // {name, em, str, isUser:true}
+let bracket = [];           // array of rounds; each round = array of matches
+let userTeam = null;
+let roundIdx = 0;
+let userMatchIdx = 0;
+let userAlive = true;
+
+// ---------- SETUP UI ----------
+const flagGrid = document.getElementById('flagGrid');
+let chosen = null;
+NATIONS.slice(0,8).forEach((n,i)=>{
+  const c = document.createElement('div');
+  c.className='flag-card';
+  c.innerHTML=`<span class="flag-emoji">${n.em}</span><span class="flag-name">${n.name}</span>`;
+  c.onclick=()=>{
+    document.querySelectorAll('.flag-card').forEach(x=>x.classList.remove('sel'));
+    c.classList.add('sel'); chosen=i;
+  };
+  flagGrid.appendChild(c);
+});
+
+document.getElementById('startBtn').onclick=()=>{
+  if(chosen===null){ alert("Elige una selección para representar."); return; }
+  const nm = (document.getElementById('playerName').value||"JUGADOR").trim().toUpperCase().slice(0,14);
+  const base = NATIONS[chosen];
+  userTeam = {name:base.name, em:base.em, str:base.str, isUser:true, label:nm};
+  player = userTeam;
+  buildBracket();
+  show('match');
+  startUserMatch();
+};
+
+// ---------- BRACKET BUILD ----------
+function buildBracket(){
+  // 8 teams: user + 7 random others
+  const pool = NATIONS.slice(0,8).filter((_,i)=>i!==chosen)
+    .concat(NATIONS.slice(8)); // include extras for variety
+  shuffle(pool);
+  const others = pool.slice(0,7).map(n=>({name:n.name,em:n.em,str:n.str,isUser:false}));
+  let teams = [userTeam, ...others];
+  shuffle(teams);
+  // ensure user knows their slot
+  userMatchIdx = Math.floor(teams.indexOf(userTeam)/2);
+
+  // round 0 (quarters)
+  const r0=[];
+  for(let i=0;i<8;i+=2) r0.push({a:teams[i],b:teams[i+1],sa:null,sb:null,winner:null,played:false});
+  bracket=[r0,[],[]]; // 3 rounds
+  roundIdx=0; userAlive=true;
+}
+
+// ---------- USER MATCH (real pong) ----------
+const cv=document.getElementById('court'), ctx=cv.getContext('2d');
+let game=null;
+
+function startUserMatch(){
+  const m = bracket[roundIdx][userMatchIdx];
+  const opp = m.a.isUser? m.b : m.a;
+  document.getElementById('matchRound').textContent = ROUND_NAMES[roundIdx];
+  document.getElementById('phaseLabel').textContent = ROUND_NAMES[roundIdx];
+  game = newGame(opp);
+  document.getElementById('lblYou').innerHTML = `${userTeam.em} ${userTeam.label} 0`;
+  document.getElementById('lblCpu').innerHTML = `0 ${opp.name} ${opp.em}`;
+  loop();
+}
+
+function newGame(opp){
+  return {
+    opp,
+    py:cv.height/2-40, ay:cv.height/2-40,
+    ph:80, pw:12,
+    bx:cv.width/2, by:cv.height/2, bvx:5, bvy:2.4, br:7,
+    youScore:0, cpuScore:0,
+    target:5,
+    serving:true, over:false, won:null,
+    // CPU skill scales with opponent strength
+    aiSpeed: 4 + (opp.str-74)/6,
+    aiErr: Math.max(6, 30-(opp.str-74))
+  };
+}
+
+// input
+let up=false,down=false,mouseY=null;
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowUp')up=true;
+  if(e.key==='ArrowDown')down=true;
+  if(e.code==='Space'&&game&&game.serving){game.serving=false;document.getElementById('matchHint').textContent="¡A jugar!";}
+});
+document.addEventListener('keyup',e=>{
+  if(e.key==='ArrowUp')up=false;
+  if(e.key==='ArrowDown')down=false;
+});
+cv.addEventListener('mousemove',e=>{
+  const r=cv.getBoundingClientRect();
+  mouseY=(e.clientY-r.top)*(cv.height/r.height)-40;
+});
+cv.addEventListener('click',()=>{if(game&&game.serving){game.serving=false;document.getElementById('matchHint').textContent="¡A jugar!";}});
+
+function loop(){
+  if(!game||game.over) return;
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function update(){
+  const g=game;
+  // player paddle
+  if(mouseY!==null){ g.py += (mouseY-g.py)*0.35; }
+  if(up) g.py-=7; if(down) g.py+=7;
+  g.py=clamp(g.py,0,cv.height-g.ph);
+
+  // ai paddle tracks ball with error + capped speed
+  const targetAy = g.by - g.ph/2 + (Math.random()*g.aiErr-g.aiErr/2);
+  const d = targetAy-g.ay;
+  g.ay += clamp(d,-g.aiSpeed,g.aiSpeed);
+  g.ay=clamp(g.ay,0,cv.height-g.ph);
+
+  if(g.serving) return;
+
+  // ball
+  g.bx+=g.bvx; g.by+=g.bvy;
+  if(g.by<g.br||g.by>cv.height-g.br){g.bvy*=-1;g.by=clamp(g.by,g.br,cv.height-g.br);}
+
+  // left paddle (player)
+  if(g.bx-g.br<24+g.pw && g.bx>24 && g.by>g.py && g.by<g.py+g.ph && g.bvx<0){
+    g.bvx=Math.abs(g.bvx)*1.04;
+    const off=(g.by-(g.py+g.ph/2))/(g.ph/2);
+    g.bvy=off*6; g.bx=24+g.pw+g.br;
+  }
+  // right paddle (cpu)
+  if(g.bx+g.br>cv.width-24-g.pw && g.bx<cv.width-24 && g.by>g.ay && g.by<g.ay+g.ph && g.bvx>0){
+    g.bvx=-Math.abs(g.bvx)*1.04;
+    const off=(g.by-(g.ay+g.ph/2))/(g.ph/2);
+    g.bvy=off*6; g.bx=cv.width-24-g.pw-g.br;
+  }
+
+  // scoring
+  if(g.bx<0){ g.cpuScore++; point(); }
+  else if(g.bx>cv.width){ g.youScore++; point(); }
+}
+
+function point(){
+  const g=game;
+  document.getElementById('lblYou').innerHTML=`${userTeam.em} ${userTeam.label} ${g.youScore}`;
+  document.getElementById('lblCpu').innerHTML=`${g.cpuScore} ${g.opp.name} ${g.opp.em}`;
+  if(g.youScore>=g.target||g.cpuScore>=g.target){
+    g.over=true; g.won = g.youScore>g.cpuScore;
+    finishUserMatch(g.youScore,g.cpuScore,g.won);
+    return;
+  }
+  // reset serve
+  g.bx=cv.width/2; g.by=cv.height/2;
+  g.bvx=(Math.random()<.5?-1:1)*5; g.bvy=(Math.random()*4-2);
+  g.serving=true;
+  document.getElementById('matchHint').textContent="Pulsa ESPACIO para sacar";
+}
+
+function draw(){
+  const g=game;
+  ctx.fillStyle="#02030a";ctx.fillRect(0,0,cv.width,cv.height);
+  // net
+  ctx.fillStyle="rgba(51,255,209,.25)";
+  for(let y=0;y<cv.height;y+=26) ctx.fillRect(cv.width/2-2,y,4,14);
+  // paddles
+  ctx.fillStyle="#33ffd1";ctx.fillRect(24,g.py,g.pw,g.ph);
+  ctx.fillStyle="#ff3d6e";ctx.fillRect(cv.width-24-g.pw,g.ay,g.pw,g.ph);
+  // ball
+  ctx.fillStyle="#ffd23f";ctx.beginPath();ctx.arc(g.bx,g.by,g.br,0,7);ctx.fill();
+  ctx.shadowColor="#ffd23f";ctx.shadowBlur=14;ctx.fill();ctx.shadowBlur=0;
+  if(g.serving){
+    ctx.fillStyle="rgba(232,246,241,.7)";ctx.font="16px Oswald";ctx.textAlign="center";
+    ctx.fillText("SAQUE — ESPACIO / CLIC",cv.width/2,cv.height-26);
+  }
+}
+
+function finishUserMatch(sy,sc,won){
+  const m=bracket[roundIdx][userMatchIdx];
+  // store as a-vs-b
+  if(m.a.isUser){m.sa=sy;m.sb=sc;}else{m.sa=sc;m.sb=sy;}
+  m.winner = won? userTeam : m.opp;
+  m.played=true;
+  userAlive = won;
+  setTimeout(()=>resolveRound(),900);
+}
+
+// ---------- SIMULATE the rest + advance ----------
+function resolveRound(){
+  // play all OTHER matches of this round via simulation
+  bracket[roundIdx].forEach((m,i)=>{
+    if(m.played) return;
+    simMatch(m);
+  });
+
+  // build next round pairings (if any)
+  if(roundIdx<2){
+    const winners = bracket[roundIdx].map(m=>m.winner);
+    const next=[];
+    for(let i=0;i<winners.length;i+=2)
+      next.push({a:winners[i],b:winners[i+1],sa:null,sb:null,winner:null,played:false});
+    bracket[roundIdx+1]=next;
+  }
+
+  renderBracket();
+  show('bracket');
+}
+
+function simMatch(m){
+  // strength-weighted random; user (if simulated after elimination) uses team str
+  const sA=m.a.str, sB=m.b.str;
+  const pA = sA/(sA+sB);
+  // simulate to 5
+  let a=0,b=0;
+  while(a<5&&b<5){ (Math.random()<pA)?a++:b++; }
+  m.sa=a;m.sb=b;m.winner=a>b?m.a:m.b;m.played=true;
+}
+
+// ---------- RENDER BRACKET SCREEN ----------
+function renderBracket(){
+  const champBox=document.getElementById('championBox');
+  const feed=document.getElementById('feed');
+  const list=document.getElementById('bracketList');
+  const title=document.getElementById('bracketTitle');
+  champBox.innerHTML=''; feed.innerHTML=''; list.innerHTML='';
+
+  title.textContent = userAlive
+    ? `RESULTADOS · ${ROUND_NAMES[roundIdx]}`
+    : `EL TORNEO CONTINÚA · ${ROUND_NAMES[roundIdx]}`;
+  document.getElementById('phaseLabel').textContent="Resultados";
+
+  // narration feed
+  const lines=[];
+  if(roundIdx===0 && userAlive)
+    lines.push(`<span class="hl">▸ ${userTeam.label} (${userTeam.name}) avanza a la siguiente ronda.</span>`);
+  if(!userAlive){
+    lines.push(`<span class="hlr">▸ ${userTeam.label} (${userTeam.name}) queda eliminado.</span>`);
+    lines.push(`<span class="muted">▸ Simulando el resto del torneo sin tu selección…</span>`);
+  }
+  bracket[roundIdx].forEach(m=>{
+    if(m.a.isUser||m.b.isUser) return;
+    const w=m.winner, l=w===m.a?m.b:m.a;
+    lines.push(`▸ ${m.a.em} ${m.a.name} <b>${m.sa}-${m.sb}</b> ${m.b.name} ${m.b.em} — gana <span class="hl">${w.name}</span>`);
+  });
+
+  let i=0;
+  lines.forEach(t=>{
+    const p=document.createElement('p');
+    p.innerHTML=t; p.style.animationDelay=(i*0.18)+'s';
+    feed.appendChild(p); i++;
+  });
+
+  // bracket of this round
+  bracket[roundIdx].forEach(m=>{
+    list.appendChild(matchEl(m));
+  });
+
+  // if final done -> champion
+  const isFinalDone = roundIdx===2 && bracket[2][0] && bracket[2][0].played;
+  const nextBtn=document.getElementById('nextBtn');
+
+  if(isFinalDone){
+    const champ=bracket[2][0].winner;
+    const userWon = champ===userTeam;
+    champBox.innerHTML=`
+      <div class="champion">
+        <span class="em">${userWon?'🏆':champ.em}</span>
+        <div class="ttl">${userWon?'¡CAMPEÓN DEL MUNDO!':'CAMPEÓN DEL TORNEO'}</div>
+        <div class="who">${champ.em} ${userWon?userTeam.label+' · '+champ.name:champ.name}</div>
+      </div>`;
+    title.textContent = userWon? "GLORIA ETERNA" : "FIN DEL TORNEO";
+    document.getElementById('footMsg').textContent = userWon?"YOU WIN · Game Over":"Game Over · Insert Coin";
+    nextBtn.textContent="↺ JUGAR DE NUEVO";
+    nextBtn.onclick=()=>location.reload();
+  } else {
+    nextBtn.textContent = userAlive ? "CONTINUAR ▶" : "VER SIGUIENTE RONDA ▶";
+    nextBtn.onclick=advance;
+  }
+}
+
+function matchEl(m){
+  const el=document.createElement('div');
+  el.className='match';
+  const aWin=m.winner===m.a, bWin=m.winner===m.b;
+  const aCls = m.a.isUser?'user':(aWin?'win':'lose');
+  const bCls = m.b.isUser?'user':(bWin?'win':'lose');
+  el.innerHTML=`
+    <div class="team ${aCls}"><span class="em">${m.a.em}</span><span>${m.a.isUser?m.a.label:m.a.name}</span></div>
+    <div class="sc">${m.played?`${m.sa}<small> – </small>${m.sb}`:'<small>vs</small>'}</div>
+    <div class="team right ${bCls}"><span>${m.b.isUser?m.b.label:m.b.name}</span><span class="em">${m.b.em}</span></div>`;
+  return el;
+}
+
+// ---------- ADVANCE to next round ----------
+function advance(){
+  roundIdx++;
+  if(roundIdx>2) return;
+
+  if(userAlive){
+    // find user's match in the new round
+    const idx = bracket[roundIdx].findIndex(m=>m.a.isUser||m.b.isUser);
+    userMatchIdx = idx;
+    show('match');
+    startUserMatch();
+  } else {
+    // user eliminated: simulate the whole next round immediately
+    bracket[roundIdx].forEach(m=>simMatch(m));
+    if(roundIdx<2){
+      const winners=bracket[roundIdx].map(m=>m.winner);
+      const next=[];
+      for(let i=0;i<winners.length;i+=2) next.push({a:winners[i],b:winners[i+1],sa:null,sb:null,winner:null,played:false});
+      bracket[roundIdx+1]=next;
+    }
+    renderBracket();
+    show('bracket');
+  }
+}
+
+// ---------- helpers ----------
+function show(which){
+  document.getElementById('setupScreen').classList.toggle('hidden',which!=='setup');
+  document.getElementById('matchScreen').classList.toggle('hidden',which!=='match');
+  document.getElementById('bracketScreen').classList.toggle('hidden',which!=='bracket');
+}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[arr[i],arr[j]]=[arr[j],arr[i]];}}
+</script>
+</body>
+</html>
